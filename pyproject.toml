@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "VYBEFORGE API — Foundation layer"
 requires-python = ">=3.12"
 dependencies = [
-    "fastapi[standard]==0.115.0",
+    "fastapi[standard]==0.136.3",
     "sqlalchemy==2.0.35",
     "asyncpg==0.30.0",
     "pydantic==2.9.2",
