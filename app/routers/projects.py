@@ -1,12 +1,16 @@
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
-from app.models import User, Project, Track
+from app.models import User, Project, Track, ProjectStatus
 from app.schemas import ProjectCreate, ProjectRead, ProjectUpdate, TrackCreate, TrackRead
 from app.auth import get_current_user
+from app.services.ai import generate_lyrics
 
 router = APIRouter(prefix="/projects", tags=["Projects"])
 
@@ -98,3 +102,24 @@ async def add_track(
     await db.commit()
     await db.refresh(track)
     return track
+
+
+class LyricsRequest(BaseModel):
+    prompt: str
+    genre: Optional[str] = None
+
+
+@router.post("/{project_id}/generate/lyrics", response_model=ProjectRead)
+async def generate_project_lyrics(
+    project_id: str,
+    payload: LyricsRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    project = await _get_owned_project(project_id, db, current_user)
+    lyrics = await generate_lyrics(payload.prompt, payload.genre)
+    project.lyrics = lyrics
+    project.status = ProjectStatus.ready
+    await db.commit()
+    await db.refresh(project, attribute_names=["tracks"])
+    return project
