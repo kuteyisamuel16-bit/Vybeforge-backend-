@@ -55,7 +55,8 @@ class Project(Base):
     status: Mapped[ProjectStatus] = mapped_column(Enum(ProjectStatus), default=ProjectStatus.draft)
     bpm: Mapped[float] = mapped_column(Float, nullable=True)
     musical_key: Mapped[str] = mapped_column(String(10), nullable=True)
-    prompt_text: Mapped[str] = mapped_column(Text, nullable=True)
+    prompt_text: Mapped[str] = mapped_column(Text, nullable=True) 
+    lyrics: Mapped[str] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
