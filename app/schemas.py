@@ -73,6 +73,7 @@ class ProjectRead(BaseModel):
     bpm: Optional[float] = None
     musical_key: Optional[str] = None
     prompt_text: Optional[str] = None
+    lyrics: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     tracks: list[TrackRead] = []
