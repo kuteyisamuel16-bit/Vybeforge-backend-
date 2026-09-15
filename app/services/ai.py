@@ -25,15 +25,20 @@ async def generate_lyrics(prompt: str, genre: str | None = None) -> str:
         f"Write song lyrics{genre_line} about: {prompt}"
     )
 
-    async with httpx.AsyncClient(timeout=60.0) as client:
-        response = await client.post(
-            GEMINI_API_URL,
-            params={"key": settings.GEMINI_API_KEY},
-            headers={"content-type": "application/json"},
-            json={
-                "contents": [{"parts": [{"text": full_prompt}]}],
-            },
-        )
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                GEMINI_API_URL,
+                params={"key": settings.GEMINI_API_KEY},
+                headers={"content-type": "application/json"},
+                json={
+                    "contents": [{"parts": [{"text": full_prompt}]}],
+                },
+            )
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=504, detail="Timed out waiting for Gemini to respond.")
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=502, detail=f"Could not reach Gemini API: {type(e).__name__}: {e}")
 
     if response.status_code != 200:
         raise HTTPException(
