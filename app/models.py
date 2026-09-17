@@ -85,6 +85,7 @@ class Upload(Base):
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=gen_uuid)
     owner_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("users.id"), nullable=False)
     original_filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    storage_key: Mapped[str] = mapped_column(String(500), nullable=True)
     storage_url: Mapped[str] = mapped_column(String(500), nullable=True)
     rights_acknowledged: Mapped[bool] = mapped_column(Boolean, default=False)
     analysis_status: Mapped[str] = mapped_column(String(50), default="pending")
