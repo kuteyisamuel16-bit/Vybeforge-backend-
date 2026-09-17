@@ -1,8 +1,8 @@
-from datetime import datetime
+from datetime import datetime, date
 from typing import Optional
 from pydantic import BaseModel, EmailStr
 
-from app.models import ProjectType, ProjectStatus
+from app.models import ProjectType, ProjectStatus, ReleaseStatus
 
 
 class UserCreate(BaseModel):
@@ -123,3 +123,30 @@ class CommentRead(BaseModel):
     author_username: str
     body: str
     created_at: datetime
+
+
+class ReleaseSubmit(BaseModel):
+    ownership_confirmed: bool
+    rights_notes: Optional[str] = None
+    territories: Optional[str] = None
+    release_date: Optional[date] = None
+
+
+class ReleaseReject(BaseModel):
+    reason: str
+
+
+class ReleaseRead(BaseModel):
+    id: str
+    project_id: str
+    status: ReleaseStatus
+    ownership_confirmed: bool
+    rights_notes: Optional[str] = None
+    territories: Optional[str] = None
+    release_date: Optional[date] = None
+    rejection_reason: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
