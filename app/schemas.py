@@ -37,6 +37,14 @@ class TrackCreate(BaseModel):
     order_index: int = 0
 
 
+class TrackUpdate(BaseModel):
+    name: Optional[str] = None
+    track_type: Optional[str] = None
+    file_url: Optional[str] = None
+    volume: Optional[float] = None
+    order_index: Optional[int] = None
+
+
 class TrackRead(BaseModel):
     id: str
     name: str
@@ -77,6 +85,18 @@ class ProjectRead(BaseModel):
     created_at: datetime
     updated_at: datetime
     tracks: list[TrackRead] = []
+
+    class Config:
+        from_attributes = True
+
+
+class UploadRead(BaseModel):
+    id: str
+    original_filename: str
+    storage_url: Optional[str] = None
+    rights_acknowledged: bool
+    analysis_status: str
+    created_at: datetime
 
     class Config:
         from_attributes = True
