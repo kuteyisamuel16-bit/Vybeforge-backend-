@@ -2,7 +2,7 @@ import uuid
 import enum
 from datetime import datetime
 
-from sqlalchemy import String, Boolean, DateTime, ForeignKey, Enum, Integer, Float, Text
+from sqlalchemy import String, Boolean, DateTime, ForeignKey, Enum, Integer, Float, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -62,6 +62,7 @@ class Project(Base):
 
     owner: Mapped["User"] = relationship(back_populates="projects")
     tracks: Mapped[list["Track"]] = relationship(back_populates="project", cascade="all, delete-orphan")
+    comments: Mapped[list["Comment"]] = relationship(back_populates="project", cascade="all, delete-orphan")
 
 
 class Track(Base):
@@ -92,3 +93,26 @@ class Upload(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     owner: Mapped["User"] = relationship(back_populates="uploads")
+
+
+class Follow(Base):
+    __tablename__ = "follows"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=gen_uuid)
+    follower_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("users.id"), nullable=False)
+    following_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("users.id"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (UniqueConstraint("follower_id", "following_id", name="uq_follow_pair"),)
+
+
+class Comment(Base):
+    __tablename__ = "comments"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=gen_uuid)
+    project_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("projects.id"), nullable=False)
+    author_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("users.id"), nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    project: Mapped["Project"] = relationship(back_populates="comments")
