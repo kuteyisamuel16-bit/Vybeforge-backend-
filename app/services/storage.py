@@ -97,3 +97,17 @@ async def delete_audio_file(key: str) -> None:
     except Exception:
         # Best-effort: don't let a storage hiccup block deleting the DB row.
         pass
+
+
+def generate_presigned_url(key: str, expires_in: int = 3600) -> str:
+    """
+    Generate a temporary signed GET URL for a private object.
+    This is local cryptographic signing, not a network call, so no threadpool needed.
+    Default expiry is 1 hour — bump expires_in (seconds) if the frontend needs longer-lived links.
+    """
+    client = _client()
+    return client.generate_presigned_url(
+        "get_object",
+        Params={"Bucket": settings.STORAGE_BUCKET_NAME, "Key": key},
+        ExpiresIn=expires_in,
+    )
