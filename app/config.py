@@ -7,6 +7,8 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
     GEMINI_API_KEY: str = ""
+    ELEVENLABS_API_KEY: str = ""
+    STABILITY_API_KEY: str = ""
 
     # Object storage (S3-compatible: AWS S3, Cloudflare R2, Backblaze B2, etc.)
     STORAGE_ENDPOINT_URL: str = ""       # leave blank for real AWS S3
