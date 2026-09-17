@@ -2,7 +2,7 @@ import uuid
 import enum
 from datetime import datetime
 
-from sqlalchemy import String, Boolean, DateTime, ForeignKey, Enum, Integer, Float, Text, UniqueConstraint
+from sqlalchemy import String, Boolean, DateTime, Date, ForeignKey, Enum, Integer, Float, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -38,6 +38,7 @@ class User(Base):
     display_name: Mapped[str] = mapped_column(String(100), nullable=True)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     is_artist: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_staff: Mapped[bool] = mapped_column(Boolean, default=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
@@ -116,3 +117,31 @@ class Comment(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     project: Mapped["Project"] = relationship(back_populates="comments")
+
+
+class ReleaseStatus(str, enum.Enum):
+    pending = "pending"
+    approved = "approved"
+    rejected = "rejected"
+
+
+class Release(Base):
+    __tablename__ = "releases"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=gen_uuid)
+    project_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("projects.id"), nullable=False, unique=True
+    )
+    submitted_by: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("users.id"), nullable=False)
+    status: Mapped[ReleaseStatus] = mapped_column(Enum(ReleaseStatus), default=ReleaseStatus.pending)
+    ownership_confirmed: Mapped[bool] = mapped_column(Boolean, default=False)
+    rights_notes: Mapped[str] = mapped_column(Text, nullable=True)
+    territories: Mapped[str] = mapped_column(String(500), nullable=True)
+    release_date: Mapped[datetime] = mapped_column(Date, nullable=True)
+    rejection_reason: Mapped[str] = mapped_column(Text, nullable=True)
+    reviewed_by: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("users.id"), nullable=True)
+    reviewed_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    project: Mapped["Project"] = relationship()
