@@ -100,3 +100,26 @@ class UploadRead(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class UserPublic(BaseModel):
+    id: str
+    username: str
+    display_name: Optional[str] = None
+    is_artist: bool
+    created_at: datetime
+    follower_count: int
+    following_count: int
+
+
+class CommentCreate(BaseModel):
+    body: str
+
+
+class CommentRead(BaseModel):
+    id: str
+    project_id: str
+    author_id: str
+    author_username: str
+    body: str
+    created_at: datetime
