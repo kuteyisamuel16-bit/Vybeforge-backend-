@@ -10,7 +10,7 @@ from app.database import get_db
 from app.models import User, Project, Track, ProjectStatus
 from app.schemas import ProjectCreate, ProjectRead, ProjectUpdate, TrackCreate, TrackRead
 from app.auth import get_current_user
-from app.services.ai import generate_lyrics
+from app.services.ai import generate_lyrics, generate_song_concept
 
 router = APIRouter(prefix="/projects", tags=["Projects"])
 
@@ -119,6 +119,25 @@ async def generate_project_lyrics(
     project = await _get_owned_project(project_id, db, current_user)
     lyrics = await generate_lyrics(payload.prompt, payload.genre)
     project.lyrics = lyrics
+    project.status = ProjectStatus.ready
+    await db.commit()
+    await db.refresh(project, attribute_names=["tracks"])
+    return project
+
+
+@router.post("/{project_id}/generate/concept", response_model=ProjectRead)
+async def generate_project_concept(
+    project_id: str,
+    payload: LyricsRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Generate a full song concept: lyrics + mood/structure header + suggested bpm/key."""
+    project = await _get_owned_project(project_id, db, current_user)
+    concept = await generate_song_concept(payload.prompt, payload.genre)
+    project.lyrics = concept["lyrics"]
+    project.bpm = concept["bpm"]
+    project.musical_key = concept["musical_key"]
     project.status = ProjectStatus.ready
     await db.commit()
     await db.refresh(project, attribute_names=["tracks"])
