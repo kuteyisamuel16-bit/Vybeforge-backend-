@@ -71,7 +71,13 @@ async def update_project(
     current_user: User = Depends(get_current_user),
 ):
     project = await _get_owned_project(project_id, db, current_user)
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    updates = payload.model_dump(exclude_unset=True)
+    if "status" in updates and updates["status"] in (ProjectStatus.published, ProjectStatus.processing):
+        raise HTTPException(
+            status_code=422,
+            detail="Use the release endpoint to submit for review — status can't be set directly.",
+        )
+    for field, value in updates.items():
         setattr(project, field, value)
     await db.commit()
     await db.refresh(project, attribute_names=["tracks"])
