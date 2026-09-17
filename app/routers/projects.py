@@ -8,7 +8,7 @@ from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.models import User, Project, Track, ProjectStatus
-from app.schemas import ProjectCreate, ProjectRead, ProjectUpdate, TrackCreate, TrackRead
+from app.schemas import ProjectCreate, ProjectRead, ProjectUpdate, TrackCreate, TrackRead, TrackUpdate
 from app.auth import get_current_user
 from app.services.ai import generate_lyrics, generate_song_concept
 
@@ -99,6 +99,40 @@ async def add_track(
     project = await _get_owned_project(project_id, db, current_user)
     track = Track(project_id=project.id, **payload.model_dump())
     db.add(track)
+    await db.commit()
+    await db.refresh(track)
+    return track
+
+
+@router.delete("/{project_id}/tracks/{track_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_track(
+    project_id: str,
+    track_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    project = await _get_owned_project(project_id, db, current_user)
+    track = next((t for t in project.tracks if t.id == track_id), None)
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+    await db.delete(track)
+    await db.commit()
+
+
+@router.patch("/{project_id}/tracks/{track_id}", response_model=TrackRead)
+async def update_track(
+    project_id: str,
+    track_id: str,
+    payload: TrackUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    project = await _get_owned_project(project_id, db, current_user)
+    track = next((t for t in project.tracks if t.id == track_id), None)
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(track, field, value)
     await db.commit()
     await db.refresh(track)
     return track
