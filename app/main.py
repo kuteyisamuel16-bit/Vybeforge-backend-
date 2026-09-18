@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routers import uploads
 from app.routers import community
+from app.routers import audio
 
 from app.database import engine, Base
 from app.routers import auth, projects
@@ -36,6 +37,8 @@ app.include_router(auth.router)
 app.include_router(projects.router)
 app.include_router(uploads.router)
 app.include_router(community.router)
+app.include_router(audio.router)
+
 @app.get("/")
 async def root():
     return {"message": "VYBEFORGE API is running. Make what you hear."}
