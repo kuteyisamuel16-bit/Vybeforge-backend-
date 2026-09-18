@@ -76,8 +76,11 @@ async def generate_instrumental(prompt: str, duration_seconds: int = 30) -> byte
     since the primary platform.stability.ai reference page wasn't directly
     fetchable during development — verify the exact `model` id string
     against your own Stability dashboard before relying on this in
-    production; "stable-audio-2.5" below is a placeholder for whichever
-    tier your account has access to.
+    production. Set to the Stable Audio 3 (medium, distilled/production)
+    checkpoint per the account's confirmed access — "stable-audio-3-medium".
+    If Stability's hosted API expects a different exact string for this
+    tier (e.g. just "stable-audio-3"), check the dashboard/API reference
+    and update the constant below.
     """
     if not settings.STABILITY_API_KEY:
         raise HTTPException(
@@ -85,7 +88,7 @@ async def generate_instrumental(prompt: str, duration_seconds: int = 30) -> byte
             detail="Instrumental generation is not configured (missing STABILITY_API_KEY).",
         )
 
-    duration_seconds = max(1, min(duration_seconds, 190))
+    duration_seconds = max(1, min(duration_seconds, 380))
     headers = {
         "Authorization": f"Bearer {settings.STABILITY_API_KEY}",
         "Content-Type": "application/json",
@@ -97,7 +100,7 @@ async def generate_instrumental(prompt: str, duration_seconds: int = 30) -> byte
                 f"{STABILITY_BASE_URL}/v2/generate/audio",
                 headers=headers,
                 json={
-                    "model": "stable-audio-2.5",
+                    "model": "stable-audio-3-medium",
                     "prompt": prompt,
                     "seconds_total": duration_seconds,
                 },
