@@ -12,6 +12,11 @@ from app.services.audio_generation import generate_instrumental, generate_vocal_
 from app.services.storage import upload_audio_file
 from app.routers.projects import _get_owned_project, _project_to_read
 
+import logging
+import traceback
+
+logger = logging.getLogger("vybeforge.audio")
+
 router = APIRouter(prefix="/projects", tags=["Audio Generation"])
 
 
@@ -39,10 +44,24 @@ async def generate_song_audio(
     if not project.lyrics or not project.lyrics.strip():
         raise HTTPException(status_code=422, detail="Generate lyrics for this project first.")
 
-    audio_bytes = await generate_vocal_song(project.lyrics, payload.style)
-    key, _ = await upload_audio_file(
-        current_user.id, f"{project.id}-song.mp3", "audio/mpeg", audio_bytes
-    )
+    try:
+        logger.warning(f"[song-audio] starting ElevenLabs call for project {project_id}")
+        audio_bytes = await generate_vocal_song(project.lyrics, payload.style)
+        logger.warning(f"[song-audio] got {len(audio_bytes)} bytes from ElevenLabs, uploading...")
+
+        key, _ = await upload_audio_file(
+            current_user.id, f"{project.id}-song.mp3", "audio/mpeg", audio_bytes
+        )
+        logger.warning(f"[song-audio] uploaded OK, key={key}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[song-audio] UNEXPECTED FAILURE: {type(e).__name__}: {e}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(
+            status_code=502,
+            detail=f"song-audio failed unexpectedly: {type(e).__name__}: {e}",
+        )
 
     existing = next((t for t in project.tracks if t.track_type == "vocals_ai"), None)
     if existing:
@@ -65,10 +84,24 @@ async def generate_instrumental_audio(
     """Renders an instrumental-only track (no vocals) via Stability AI's Stable Audio."""
     project = await _get_owned_project(project_id, db, current_user)
 
-    audio_bytes = await generate_instrumental(payload.prompt, payload.duration_seconds)
-    key, _ = await upload_audio_file(
-        current_user.id, f"{project.id}-instrumental.wav", "audio/wav", audio_bytes
-    )
+    try:
+        logger.warning(f"[instrumental] starting Stability call for project {project_id}")
+        audio_bytes = await generate_instrumental(payload.prompt, payload.duration_seconds)
+        logger.warning(f"[instrumental] got {len(audio_bytes)} bytes from Stability, uploading...")
+
+        key, _ = await upload_audio_file(
+            current_user.id, f"{project.id}-instrumental.wav", "audio/wav", audio_bytes
+        )
+        logger.warning(f"[instrumental] uploaded OK, key={key}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[instrumental] UNEXPECTED FAILURE: {type(e).__name__}: {e}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(
+            status_code=502,
+            detail=f"instrumental failed unexpectedly: {type(e).__name__}: {e}",
+        )
 
     existing = next((t for t in project.tracks if t.track_type == "instrumental_ai"), None)
     if existing:
