@@ -1,5 +1,3 @@
-import asyncio
-
 import httpx
 from fastapi import HTTPException
 
@@ -71,16 +69,20 @@ async def generate_instrumental(prompt: str, duration_seconds: int = 30) -> byte
     Renders an instrumental-only track from a text prompt via Stability AI's
     Stable Audio model (no vocals — Stable Audio explicitly can't sing).
 
-    Uses Stability's async job pattern: submit -> poll -> fetch. Assembled
-    from third-party mirrors of Stability's docs (aimlapi.com, api-evangelist)
-    since the primary platform.stability.ai reference page wasn't directly
-    fetchable during development — verify the exact `model` id string
-    against your own Stability dashboard before relying on this in
-    production. Set to the Stable Audio 3 (medium, distilled/production)
-    checkpoint per the account's confirmed access — "stable-audio-3-medium".
-    If Stability's hosted API expects a different exact string for this
-    tier (e.g. just "stable-audio-3"), check the dashboard/API reference
-    and update the constant below.
+    This is SYNCHRONOUS (no job queue, no polling) and uses multipart/form-data,
+    confirmed directly from Stability's own official API reference example at
+    platform.stability.ai/docs/api-reference:
+
+        requests.post(
+            "https://api.stability.ai/v2beta/audio/stable-audio-2/text-to-audio",
+            headers={"authorization": f"Bearer sk-...", "accept": "audio/*"},
+            files={"none": ""},
+            data={"prompt": ..., "output_format": "mp3", "duration": 20, "model": "stable-audio-2.5"},
+        )
+
+    Note the path says "stable-audio-2" while the actual model tier is chosen
+    via the "model" field in the form data ("stable-audio-2.5" here) — that's
+    not a typo, it's how Stability's own docs show it.
     """
     if not settings.STABILITY_API_KEY:
         raise HTTPException(
@@ -88,68 +90,32 @@ async def generate_instrumental(prompt: str, duration_seconds: int = 30) -> byte
             detail="Instrumental generation is not configured (missing STABILITY_API_KEY).",
         )
 
-    duration_seconds = max(1, min(duration_seconds, 380))
-    headers = {
-        "Authorization": f"Bearer {settings.STABILITY_API_KEY}",
-        "Content-Type": "application/json",
-    }
+    duration_seconds = max(1, min(duration_seconds, 190))
 
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            submit = await client.post(
-                f"{STABILITY_BASE_URL}/v2/generate/audio",
-                headers=headers,
-                json={
-                    "model": "stable-audio-3-medium",
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            response = await client.post(
+                f"{STABILITY_BASE_URL}/v2beta/audio/stable-audio-2/text-to-audio",
+                headers={
+                    "authorization": f"Bearer {settings.STABILITY_API_KEY}",
+                    "accept": "audio/*",
+                },
+                files={"none": ""},  # required to force multipart encoding, per Stability's docs
+                data={
                     "prompt": prompt,
-                    "seconds_total": duration_seconds,
+                    "output_format": "mp3",
+                    "duration": duration_seconds,
+                    "model": "stable-audio-2.5",
                 },
             )
     except httpx.TimeoutException:
-        raise HTTPException(status_code=504, detail="Timed out submitting the instrumental job to Stability AI.")
+        raise HTTPException(status_code=504, detail="Timed out waiting for Stability AI to render the instrumental.")
     except httpx.RequestError as e:
         raise HTTPException(status_code=502, detail=f"Could not reach Stability AI: {type(e).__name__}: {e}")
 
-    if submit.status_code not in (200, 201, 202):
+    if response.status_code != 200:
         raise HTTPException(
-            status_code=502, detail=f"Stability AI error: {submit.status_code} {submit.text[:300]}"
+            status_code=502, detail=f"Stability AI error: {response.status_code} {response.text[:300]}"
         )
 
-    job = submit.json()
-    generation_id = job.get("id")
-    if not generation_id:
-        raise HTTPException(status_code=502, detail="Stability AI response was missing a generation id.")
-
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        for _ in range(30):  # poll for up to ~60s
-            await asyncio.sleep(2)
-            poll = await client.get(
-                f"{STABILITY_BASE_URL}/v2/generate/audio",
-                headers=headers,
-                params={"generation_id": generation_id},
-            )
-            if poll.status_code != 200:
-                continue
-            result = poll.json()
-            status_value = result.get("status")
-
-            if status_value == "completed":
-                audio_url = result.get("audio_url") or result.get("url")
-                if audio_url:
-                    audio_resp = await client.get(audio_url)
-                    if audio_resp.status_code != 200:
-                        raise HTTPException(
-                            status_code=502, detail="Could not download the finished audio from Stability AI."
-                        )
-                    return audio_resp.content
-                content_type = poll.headers.get("content-type", "")
-                if content_type.startswith("audio/"):
-                    return poll.content
-                raise HTTPException(
-                    status_code=502, detail="Stability AI marked the job complete but returned no audio."
-                )
-
-            if status_value == "failed":
-                raise HTTPException(status_code=502, detail="Stability AI reported the generation failed.")
-
-    raise HTTPException(status_code=504, detail="Timed out waiting for Stability AI to finish generating audio.")
+    return response.content
