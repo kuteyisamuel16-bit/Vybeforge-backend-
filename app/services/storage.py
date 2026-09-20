@@ -1,4 +1,5 @@
 import mimetypes
+import time
 import uuid
 
 import boto3
@@ -33,7 +34,13 @@ def _client():
         aws_access_key_id=settings.STORAGE_ACCESS_KEY_ID or None,
         aws_secret_access_key=settings.STORAGE_SECRET_ACCESS_KEY or None,
         region_name=settings.STORAGE_REGION or None,
-        config=BotoConfig(signature_version="s3v4"),
+        config=BotoConfig(
+            signature_version="s3v4",
+            # Path-style addressing (bucket in the URL path, not as a subdomain) is
+            # more reliable against non-AWS S3-compatible providers like Backblaze B2.
+            s3={"addressing_style": "path"},
+            retries={"max_attempts": 5, "mode": "adaptive"},
+        ),
     )
 
 
@@ -60,13 +67,28 @@ async def upload_audio_file(
     key = f"uploads/{owner_id}/{uuid.uuid4()}.{ext}"
 
     def _put():
-        client = _client()
-        client.put_object(
-            Bucket=settings.STORAGE_BUCKET_NAME,
-            Key=key,
-            Body=data,
-            ContentType=content_type or "application/octet-stream",
-        )
+        # Backblaze B2 occasionally drops the TLS connection mid-upload
+        # (ssl.SSLEOFError / "EOF occurred in violation of protocol") — this is a
+        # known intermittent issue with boto3 against non-AWS S3-compatible
+        # providers, not a bug in the request itself. Retry a few times with
+        # backoff before giving up.
+        last_error = None
+        for attempt in range(4):
+            try:
+                client = _client()
+                client.put_object(
+                    Bucket=settings.STORAGE_BUCKET_NAME,
+                    Key=key,
+                    Body=data,
+                    ContentType=content_type or "application/octet-stream",
+                )
+                return
+            except Exception as e:
+                last_error = e
+                if attempt < 3:
+                    time.sleep(2**attempt)  # 1s, 2s, 4s
+                    continue
+                raise last_error
 
     try:
         await run_in_threadpool(_put)
