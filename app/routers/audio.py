@@ -90,7 +90,7 @@ async def generate_instrumental_audio(
         logger.warning(f"[instrumental] got {len(audio_bytes)} bytes from Stability, uploading...")
 
         key, _ = await upload_audio_file(
-            current_user.id, f"{project.id}-instrumental.wav", "audio/wav", audio_bytes
+            current_user.id, f"{project.id}-instrumental.mp3", "audio/mpeg", audio_bytes
         )
         logger.warning(f"[instrumental] uploaded OK, key={key}")
     except HTTPException:
